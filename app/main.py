@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="FastAPI with PostgreSQL",
               description="A simple FastAPI application with PostgreSQL database",)
 
-origins = ["https://www.google.com"]
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,4 +62,4 @@ app.include_router(votes.router)
 @app.get("/", tags=['Root'])
 def root():
     # return a dictionary that will be converted to JSON
-    return {"message": "Welcome to our API! Hello World!"}
+    return {"message": "Hello! Welcome to our API! At the end of the url add '/docs' to try out sending requests. Enjoy!"}
