@@ -1,6 +1,6 @@
 
 from fastapi import status, HTTPException, Depends, APIRouter, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
@@ -23,7 +23,7 @@ async def get_posts(db: AsyncSession = Depends(async_get_db), limit: int = 10, s
     #     models.Post.title.contains(search)).limit(limit).offset(skip).all()
 
     stmt = select(models.Post, func.count(models.Votes.post_id).label("votes")).join(
-        models.Votes, models.Votes.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(
+        models.Votes, models.Votes.post_id == models.Post.id, isouter=True).options(selectinload(models.Post.owner)).group_by(models.Post.id).filter(
         models.Post.title.contains(search)).limit(limit).offset(skip)
 
     result = await db.execute(stmt)
