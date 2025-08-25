@@ -7,6 +7,8 @@ from . import schemas, database, models
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from .config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
@@ -54,12 +56,31 @@ def verify_access_token(token: str, credentials_exception):
 
 
 # setting dependency on the login end-point so that it retrieves the login data from there
+async def async_get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(database.async_get_db)):
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials.", headers={"WWW-Authenticate": "Bearer"})
+
+    token_data = verify_access_token(token, credentials_exception)
+    stmt = select(models.Users).filter(models.Users.id == token_data.id)
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        raise credentials_exception
+
+    return user
+
+
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
 
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Credentials.", headers={"WWW-Authenticate": "Bearer"})
 
-    token = verify_access_token(token, credentials_exception)
-    user = db.query(models.Users).filter(models.Users.id == token.id).first()
+    token_data = verify_access_token(token, credentials_exception)
+    user = db.query(models.Users).filter(
+        models.Users.id == token_data.id).first()
+    if user is None:
+        raise credentials_exception
 
     return user

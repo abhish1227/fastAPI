@@ -1,10 +1,12 @@
 
 from fastapi import status, HTTPException, Depends, APIRouter, Response
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from .. import models, schemas, oauth2
-from ..database import engine, get_db
+from ..database import engine, get_db, async_get_db
+
 
 router = APIRouter(
     prefix="/posts",
@@ -13,17 +15,19 @@ router = APIRouter(
 
 
 @router.get("/", response_model=List[schemas.PostWithVote])
-def get_posts(db: Session = Depends(get_db), curr_user: int = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
+async def get_posts(db: AsyncSession = Depends(async_get_db), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
     # cursor.execute("""SELECT * FROM posts""")
     # posts = cursor.fetchall()
 
     # posts = db.query(models.Post).filter(
     #     models.Post.title.contains(search)).limit(limit).offset(skip).all()
 
-    posts_with_vote_count = db.query(models.Post, func.count(models.Votes.post_id).label("votes")).join(
+    stmt = select(models.Post, func.count(models.Votes.post_id).label("votes")).join(
         models.Votes, models.Votes.post_id == models.Post.id, isouter=True).group_by(models.Post.id).filter(
-        models.Post.title.contains(search)).limit(limit).offset(skip).all()
+        models.Post.title.contains(search)).limit(limit).offset(skip)
 
+    result = await db.execute(stmt)
+    posts_with_vote_count = result.all()
     return posts_with_vote_count
 
 
